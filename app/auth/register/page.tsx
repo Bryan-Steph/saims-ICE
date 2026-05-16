@@ -190,6 +190,9 @@ export default function RegisterPage() {
   return (
     <main className="page-center">
       <div className="auth-card w-full" style={{ maxWidth: step === 1 ? '42rem' : '30rem' }}>
+        <Link href="/" className="inline-flex items-center gap-1.5 text-xs mb-6" style={{ color: 'var(--color-muted)' }}>
+     ← Back to home
+   </Link>
 
         {/* Logo */}
         <div className="mb-8 flex items-center justify-between">
@@ -405,8 +408,9 @@ export default function RegisterPage() {
             <p className="text-sm mb-6" style={{ color: 'var(--color-muted)' }}>
               Account created. Taking you to your dashboard…
             </p>
-            <Spinner size="sm" style={{ color: 'var(--color-accent)' } as React.CSSProperties} />
-          </div>
+<span style={{ color: 'var(--color-accent)' }}>
+  <Spinner size="sm" />
+</span>          </div>
         )}
 
       </div>

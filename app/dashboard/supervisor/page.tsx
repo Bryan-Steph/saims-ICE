@@ -3,6 +3,7 @@ import { createClient }   from '@/lib/supabase-server'
 import { DashboardShell } from '@/components/ui/DashboardShell'
 import { Badge }          from '@/components/ui/Badge'
 
+
 function StatCard({ label, value, sub, color }: {
   label: string; value: string | number; sub: string; color: string
 }) {

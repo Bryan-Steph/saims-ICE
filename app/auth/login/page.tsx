@@ -58,6 +58,10 @@ export default function LoginPage() {
     <main className="page-center">
       <div className="auth-card">
 
+        <Link href="/" className="inline-flex items-center gap-1.5 text-xs mb-6" style={{ color: 'var(--color-muted)' }}>
+     ← Back to home
+   </Link>
+
         {/* Logo */}
         <div className="mb-8">
           <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.25rem', color: 'var(--color-tx)' }}>

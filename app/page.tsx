@@ -2,6 +2,8 @@ import Link                    from 'next/link'
 import { createClient }        from '@/lib/supabase-server'
 import { Navbar }              from '@/components/ui/Navbar'
 import { Footer }              from '@/components/ui/Footer'
+// import { Companies }          from '../companies/page'
+
 
 
 const STEPS = [

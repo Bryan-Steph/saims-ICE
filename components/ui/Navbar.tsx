@@ -7,7 +7,7 @@ import { createClient }   from '@/lib/supabase'
 
 const NAV_LINKS = [
   { href: '/companies', label: 'Find Internships' },
-  { href: '/#for-companies', label: 'For Companies' },
+  { href: '/#for-companies', label: 'Companies' },
   { href: '/#university', label: 'University' },
   { href: '/#resources', label: 'Resources' },
 ]
