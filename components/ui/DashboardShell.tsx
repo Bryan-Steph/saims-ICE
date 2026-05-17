@@ -4,198 +4,240 @@ import { useState }               from 'react'
 import Link                       from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient }           from '@/lib/supabase'
+import { Spinner }                from '@/components/ui/Spinner'
 
 type Role = 'student' | 'company' | 'supervisor'
+interface Props { name: string; role: Role; children: React.ReactNode }
 
-interface NavItem { href: string; label: string; icon: React.ReactNode }
-
-interface DashboardShellProps {
-  name:     string
-  role:     Role
-  children: React.ReactNode
-}
-
-// ─── Inline icon helper ────────────────────────────────────────────────────
-
-function SvgIcon({ d }: { d: string }) {
+// ─── Icons ─────────────────────────────────────────────────────────────────
+function I({ d }: { d: string }) {
   return (
-    <svg className="w-[1.1rem] h-[1.1rem] shrink-0" fill="none" viewBox="0 0 24 24"
+    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24"
       stroke="currentColor" strokeWidth={1.75}>
       <path strokeLinecap="round" strokeLinejoin="round" d={d} />
     </svg>
   )
 }
 
-// ─── Navigation config ─────────────────────────────────────────────────────
-
-const NAV: Record<Role, NavItem[]> = {
+// ─── Nav definitions ───────────────────────────────────────────────────────
+const NAV: Record<Role, { href: string; label: string; d: string }[]> = {
   student: [
-    { href: '/dashboard/student',         label: 'Overview',         icon: <SvgIcon d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /> },
-    { href: '/companies',                 label: 'Browse Companies', icon: <SvgIcon d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" /> },
-    { href: '/dashboard/student/reports', label: 'Weekly Reports',   icon: <SvgIcon d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /> },
+    { href: '/dashboard/student',              label: 'Dashboard',        d: 'M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z' },
+    { href: '/dashboard/student/companies',    label: 'Browse Companies', d: 'M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21' },
+    { href: '/dashboard/student/applications', label: 'Applications',     d: 'M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5' },
+    { href: '/dashboard/student/reports',      label: 'Reports',          d: 'M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z' },
+    { href: '/dashboard/student/settings',     label: 'Settings',         d: 'M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
   ],
   company: [
-    { href: '/dashboard/company',              label: 'Overview',        icon: <SvgIcon d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /> },
-    { href: '/dashboard/company/slots',        label: 'Internship Slots', icon: <SvgIcon d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0M12 12.75h.008v.008H12v-.008z" /> },
-    { href: '/dashboard/company/applications', label: 'Applications',    icon: <SvgIcon d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z" /> },
-    { href: '/dashboard/company/reports',      label: 'Intern Reports',  icon: <SvgIcon d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /> },
+    { href: '/dashboard/company',                   label: 'Dashboard',    d: 'M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z' },
+    { href: '/dashboard/company/applications',      label: 'Applications', d: 'M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z' },
+    { href: '/dashboard/company/settings',          label: 'Settings',     d: 'M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
   ],
   supervisor: [
-    { href: '/dashboard/supervisor',          label: 'Overview',    icon: <SvgIcon d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /> },
-    { href: '/dashboard/supervisor/students', label: 'My Students', icon: <SvgIcon d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /> },
-    { href: '/dashboard/supervisor/reports',  label: 'Reports',    icon: <SvgIcon d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /> },
+    { href: '/dashboard/supervisor',          label: 'Overview',    d: 'M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z' },
+    { href: '/dashboard/supervisor/students', label: 'My Students', d: 'M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z' },
+    { href: '/dashboard/supervisor/reports',  label: 'Reports',    d: 'M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z' },
   ],
 }
 
-const ROLE_LABEL: Record<Role, string> = {
-  student:    'Student',
-  company:    'Company',
-  supervisor: 'Supervisor',
-}
+// ─── Sidebar content (shared between desktop + mobile) ─────────────────────
+function SidebarInner({
+  name, role, onNavClick, onSignOut, signingOut,
+}: {
+  name: string; role: Role
+  onNavClick: () => void
+  onSignOut: () => void
+  signingOut: boolean
+}) {
+  const pathname = usePathname()
+  const initials = name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
+  const navItems = NAV[role] ?? []
 
-// ─── Component ─────────────────────────────────────────────────────────────
-
-export function DashboardShell({ name, role, children }: DashboardShellProps) {
-  const pathname           = usePathname()
-  const router             = useRouter()
-  const [mobileOpen, setMobileOpen] = useState(false)
-
-  const initials = name
-    .split(' ')
-    .map(w => w[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase()
-
-  async function handleSignOut() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/auth/login')
-    router.refresh()
-  }
-
-  const navLinks = NAV[role]
-
-  // ── Sidebar inner content (reused for desktop + mobile drawer) ──────────
-  function SidebarContent() {
-    return (
-      <div className="flex flex-col h-full">
-        {/* Logo */}
-        <div className="px-5 h-14 flex items-center shrink-0" style={{ borderBottom: '1px solid var(--color-border)' }}>
-          <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.1rem' }}>
-            Attach<span style={{ color: 'var(--color-accent)' }}>Hub</span>
-          </span>
-        </div>
-
-        {/* Nav links */}
-        <nav className="flex-1 px-3 py-4 flex flex-col gap-0.5 overflow-y-auto">
-          {navLinks.map(item => {
-            const active = pathname === item.href
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all"
-                style={{
-                  background:   active ? 'rgba(59,130,246,0.1)' : 'transparent',
-                  color:        active ? 'var(--color-accent)' : 'var(--color-muted)',
-                  fontWeight:   active ? 600 : 400,
-                  borderLeft:   active ? '2px solid var(--color-accent)' : '2px solid transparent',
-                }}
-              >
-                {item.icon}
-                {item.label}
-              </Link>
-            )
-          })}
-        </nav>
-
-        {/* User + sign out */}
-        <div className="px-3 py-4 shrink-0" style={{ borderTop: '1px solid var(--color-border)' }}>
-          <div className="flex items-center gap-3 px-3 py-2 mb-1 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)' }}>
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-              style={{ background: 'rgba(59,130,246,0.15)', color: 'var(--color-accent)', fontFamily: 'var(--font-mono)' }}
-            >
-              {initials}
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium truncate" style={{ color: 'var(--color-tx)' }}>{name}</p>
-              <p className="text-xs" style={{ color: 'var(--color-muted)', fontFamily: 'var(--font-mono)' }}>{ROLE_LABEL[role]}</p>
-            </div>
-          </div>
-          <button
-            onClick={handleSignOut}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors"
-            style={{ color: 'var(--color-muted)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-danger)')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-muted)')}
-          >
-            <SvgIcon d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-            Sign out
-          </button>
-        </div>
-      </div>
-    )
+  function isActive(href: string) {
+    if (href === `/dashboard/${role}`) return pathname === href
+    return pathname.startsWith(href)
   }
 
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--color-bg)' }}>
+    <div className="flex flex-col h-full">
+      {/* Logo */}
+      <div className="flex items-center gap-2.5 px-4 h-[60px] shrink-0"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+          style={{ background: 'rgba(59,130,246,0.2)' }}>
+          <svg className="w-3.5 h-3.5" style={{ color: '#3B82F6' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.438 60.438 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.906 59.906 0 0112 3.493a59.903 59.903 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5" />
+          </svg>
+        </div>
+        <div>
+          <p className="text-sm font-bold leading-tight" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-tx)' }}>AttachHub</p>
+          <p className="text-[10px]" style={{ color: 'var(--color-muted)', fontFamily: 'var(--font-mono)' }}>Management Portal</p>
+        </div>
+      </div>
 
-      {/* ── Desktop sidebar ── */}
+      {/* Nav */}
+      <nav className="flex flex-col gap-0.5 p-3 flex-1 overflow-y-auto">
+        {navItems.map(item => {
+          const active = isActive(item.href)
+          return (
+            <Link key={item.href} href={item.href} onClick={onNavClick}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150"
+              style={{
+                color:      active ? 'var(--color-tx)' : 'var(--color-muted)',
+                background: active ? 'rgba(59,130,246,0.12)' : 'transparent',
+                borderLeft: `2px solid ${active ? '#3B82F6' : 'transparent'}`,
+              }}>
+              <span style={{ color: active ? '#3B82F6' : 'var(--color-muted)' }}>
+                <I d={item.d} />
+              </span>
+              {item.label}
+            </Link>
+          )
+        })}
+      </nav>
+
+      {/* User + sign out */}
+      <div className="p-3 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="flex items-center gap-3 px-3 py-2.5 mb-1 rounded-xl"
+          style={{ background: 'rgba(255,255,255,0.03)' }}>
+          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+            style={{ background: 'rgba(59,130,246,0.2)', color: '#3B82F6', fontFamily: 'var(--font-heading)' }}>
+            {initials}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold truncate" style={{ color: 'var(--color-tx)' }}>{name}</p>
+            <p className="text-[10px] capitalize" style={{ color: 'var(--color-muted)', fontFamily: 'var(--font-mono)' }}>{role}</p>
+          </div>
+        </div>
+
+        <button onClick={onSignOut} disabled={signingOut}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150"
+          style={{
+            color:      signingOut ? 'var(--color-muted)' : '#EF4444',
+            background: 'none', border: 'none', cursor: signingOut ? 'not-allowed' : 'pointer',
+            opacity:    signingOut ? 0.6 : 1,
+          }}>
+          {signingOut
+            ? <Spinner size="xs" />
+            : <I d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+          }
+          {signingOut ? 'Signing out…' : 'Sign Out'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Shell ─────────────────────────────────────────────────────────────────
+export function DashboardShell({ name, role, children }: Props) {
+  const router                     = useRouter()
+  const [sideOpen, setSideOpen]    = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
+
+  async function handleSignOut() {
+    setSigningOut(true)
+    try {
+      const supabase = createClient()
+      await supabase.auth.signOut()
+      router.push('/auth/login')
+      router.refresh()
+    } catch {
+      setSigningOut(false)
+    }
+  }
+
+  const sidebarProps = {
+    name, role,
+    onNavClick:  () => setSideOpen(false),
+    onSignOut:   handleSignOut,
+    signingOut,
+  }
+
+  return (
+    <div className="flex min-h-screen" style={{ background: 'var(--color-bg)' }}>
+
+      {/* ── Mobile overlay ── */}
+      <div
+        className="fixed inset-0 z-40 lg:hidden"
+        onClick={() => setSideOpen(false)}
+        style={{
+          background:     sideOpen ? 'rgba(0,0,0,0.65)' : 'transparent',
+          backdropFilter: sideOpen ? 'blur(4px)'         : 'none',
+          pointerEvents:  sideOpen ? 'auto'              : 'none',
+          transition:     'background 280ms ease, backdrop-filter 280ms ease',
+        }}
+      />
+
+      {/* ── Mobile sidebar (fixed, slides from left) ── */}
       <aside
-        className="hidden lg:flex flex-col fixed inset-y-0 left-0 z-30 w-60"
-        style={{ background: 'var(--color-surface)', borderRight: '1px solid var(--color-border)' }}
+        className="fixed inset-y-0 left-0 z-50 w-[260px] lg:hidden"
+        style={{
+          background:  '#0A1628',
+          borderRight: '1px solid rgba(255,255,255,0.07)',
+          transform:   sideOpen ? 'translateX(0)' : 'translateX(-100%)',
+          transition:  'transform 300ms cubic-bezier(0.4,0,0.2,1)',
+          pointerEvents: sideOpen ? 'auto' : 'none',
+        }}
       >
-        <SidebarContent />
+        <SidebarInner {...sidebarProps} />
       </aside>
 
-      {/* ── Mobile top bar ── */}
-      <header
-        className="lg:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center justify-between px-4"
-        style={{ background: 'var(--color-surface)', borderBottom: '1px solid var(--color-border)' }}
+      {/* ── Desktop sidebar (sticky, part of flex flow) ── */}
+      <aside
+        className="hidden lg:flex flex-col w-[240px] shrink-0 sticky top-0 h-screen"
+        style={{ background: '#0A1628', borderRight: '1px solid rgba(255,255,255,0.07)' }}
       >
-        <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.1rem' }}>
-          Attach<span style={{ color: 'var(--color-accent)' }}>Hub</span>
-        </span>
-        <button
-          onClick={() => setMobileOpen(v => !v)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-tx)', padding: '0.25rem' }}
-          aria-label="Toggle menu"
+        <SidebarInner {...sidebarProps} />
+      </aside>
+
+      {/* ── Main area ── */}
+      <div className="flex-1 flex flex-col min-w-0">
+
+        {/* Mobile top bar */}
+        <header
+          className="lg:hidden fixed top-0 left-0 right-0 z-30 h-[56px] flex items-center justify-between px-4"
+          style={{ background: '#0A1628', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
         >
-          {mobileOpen ? (
-            <SvgIcon d="M6 18L18 6M6 6l12 12" />
-          ) : (
-            <SvgIcon d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-          )}
-        </button>
-      </header>
-
-      {/* ── Mobile drawer overlay ── */}
-      {mobileOpen && (
-        <>
-          <div
-            className="lg:hidden fixed inset-0 z-40"
-            style={{ background: 'rgba(0,0,0,0.6)' }}
-            onClick={() => setMobileOpen(false)}
-          />
-          <aside
-            className="lg:hidden fixed inset-y-0 left-0 z-50 w-72 flex flex-col"
-            style={{ background: 'var(--color-surface)', borderRight: '1px solid var(--color-border)' }}
+          <button
+            onClick={() => setSideOpen(o => !o)}
+            className="w-9 h-9 flex flex-col items-center justify-center gap-[5px] rounded-lg"
+            style={{ background: 'rgba(255,255,255,0.05)', border: 'none', cursor: 'pointer' }}
+            aria-label="Toggle menu"
           >
-            <SidebarContent />
-          </aside>
-        </>
-      )}
+            <span style={{
+              display: 'block', height: '1.5px', width: '18px', borderRadius: '2px',
+              background: 'var(--color-muted)', transition: 'all 280ms ease',
+              transform: sideOpen ? 'translateY(6.5px) rotate(45deg)' : 'none',
+            }} />
+            <span style={{
+              display: 'block', height: '1.5px', width: '18px', borderRadius: '2px',
+              background: 'var(--color-muted)', transition: 'all 280ms ease',
+              opacity: sideOpen ? 0 : 1, transform: sideOpen ? 'scaleX(0)' : 'scaleX(1)',
+            }} />
+            <span style={{
+              display: 'block', height: '1.5px', width: '18px', borderRadius: '2px',
+              background: 'var(--color-muted)', transition: 'all 280ms ease',
+              transform: sideOpen ? 'translateY(-6.5px) rotate(-45deg)' : 'none',
+            }} />
+          </button>
 
-      {/* ── Main content ── */}
-      <main className="lg:pl-60 pt-14 lg:pt-0 min-h-screen">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-          {children}
-        </div>
-      </main>
+          <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1rem', color: 'var(--color-tx)' }}>
+            Attach<span style={{ color: '#3B82F6' }}>Hub</span>
+          </span>
 
+          <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold"
+            style={{ background: 'rgba(59,130,246,0.2)', color: '#3B82F6', fontFamily: 'var(--font-heading)' }}>
+            {name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
+          </div>
+        </header>
+
+        {/* Content — padded top on mobile to clear fixed top bar */}
+        <main className="flex-1 pt-[56px] lg:pt-0 overflow-y-auto">
+          <div className="p-5 sm:p-7 max-w-6xl mx-auto">
+            {children}
+          </div>
+        </main>
+      </div>
     </div>
   )
 }

@@ -85,7 +85,8 @@ export default async function HomePage() {
       <main className="pt-14">
 
         {/* ── Hero ── */}
-        <section className="relative overflow-hidden">
+        <section className="relative min-h-[70vh] sm:min-h-[85vh] flex flex-col items-center justify-center text-center overflow-hidden px-5 py-16"
+>
           {/* background glow */}
           <div
             aria-hidden
@@ -105,7 +106,7 @@ export default async function HomePage() {
             </div>
 
             <h1
-              className="text-4xl sm:text-6xl font-extrabold leading-tight mb-6"
+              className="text-3xl sm:text-5xl lg:text-7xl font-extrabold leading-[1.05] mb-6 tracking-tight"
               style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-tx)' }}
             >
               Find your industrial{' '}
