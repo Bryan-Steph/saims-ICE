@@ -3,6 +3,7 @@ import Link                   from 'next/link'
 import { createClient }       from '@/lib/supabase-server'
 import { DashboardShell }     from '@/components/ui/DashboardShell'
 import { ApplicationActions } from '@/components/ui/ApplicationActions'
+import CoverLetterModal from '@/components/ui/CoverLetterModal'
 
 type Application = {
   id:           string

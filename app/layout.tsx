@@ -1,6 +1,11 @@
 import type { Metadata } from 'next'
 import { Syne, Plus_Jakarta_Sans, DM_Mono } from 'next/font/google'
 import './globals.css'
+// Add to top of layout.tsx imports
+import NavigationProgress from '@/components/ui/NavigationProgress'
+
+// Inside your <body> tag, right at the top:
+
 
 const syne = Syne({
   subsets:  ['latin'],
@@ -34,7 +39,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="en"
       className={`${syne.variable} ${jakarta.variable} ${dmMono.variable}`}
     >
-      <body>{children}</body>
+      <body>
+          <NavigationProgress />
+           {children}
+      </body>
     </html>
   )
 }

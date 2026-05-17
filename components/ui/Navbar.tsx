@@ -51,11 +51,13 @@ export function Navbar() {
           <Link href="/" className="flex items-center shrink-0 select-none">
             <span className="text-xl font-extrabold tracking-tight"
               style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-tx)' }}>
-              AttachHub
+              Attach<span style={{ color: 'var(--color-accent)' }}>Hub</span>
             </span>
+            
             <span className="inline-block w-2 h-2 rounded-full mb-3 ml-0.5"
               style={{ background: 'var(--color-blue)' }} />
           </Link>
+
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1 flex-1">

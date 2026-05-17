@@ -3,6 +3,7 @@ import Link                   from 'next/link'
 import { createClient }       from '@/lib/supabase-server'
 import { DashboardShell }     from '@/components/ui/DashboardShell'
 import { ApplicationActions } from '@/components/ui/ApplicationActions'
+import  CoverLetterModal   from '@/components/ui/CoverLetterModal'
 
 type Application = {
   id:           string
@@ -223,13 +224,15 @@ const applications = (rows ?? []) as unknown as Application[]
                         )}
                       </div>
 
-                      {/* Cover note */}
-                      {note && (
-                        <p className="text-xs mt-2 italic leading-relaxed line-clamp-2"
-                          style={{ color: 'var(--color-muted)' }}>
-                          &ldquo;{note}&rdquo;
-                        </p>
-                      )}
+{/* Cover note — expandable modal so company users can read the full letter */}
+{note && (
+  <div className="mt-2">
+    <CoverLetterModal
+      motivation={note}
+      studentName={student ? `${student.first_name} ${student.last_name}` : 'Applicant'}
+    />
+  </div>
+)}
 
                       {/* Meta row */}
                       <div className="flex items-center justify-between gap-3 mt-3 flex-wrap">
