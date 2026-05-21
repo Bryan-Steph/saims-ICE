@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link         from 'next/link'
 import { createClient } from '@/lib/supabase-server'
 import { DashboardShell } from '@/components/ui/DashboardShell'
+import { CancelApplication } from '@/components/ui/CancelApplication'
 
 type Application = {
   id:           string
@@ -60,7 +61,6 @@ export default async function StudentApplicationsPage() {
   return (
     <DashboardShell name={student.first_name} role="student">
 
-      {/* Header */}
       <div className="mb-6">
         <p className="text-[10px] font-semibold tracking-widest mb-1.5"
           style={{ color: '#3B82F6', fontFamily: 'var(--font-mono)' }}>
@@ -71,11 +71,10 @@ export default async function StudentApplicationsPage() {
           All Applications
         </h1>
         <p className="mt-1 text-sm" style={{ color: 'var(--color-muted)' }}>
-          {applications.length} total application{applications.length !== 1 ? 's' : ''}
+          {applications.length} total · pending applications can be withdrawn
         </p>
       </div>
 
-      {/* Stats */}
       {applications.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           {([
@@ -99,16 +98,12 @@ export default async function StudentApplicationsPage() {
         </div>
       )}
 
-      {/* List */}
       {applications.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-4 rounded-2xl"
           style={{ background: '#101A2E', border: '1px solid rgba(255,255,255,0.05)' }}>
           <p className="font-semibold"
             style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-tx)' }}>
             No applications yet
-          </p>
-          <p className="text-sm" style={{ color: 'var(--color-muted)' }}>
-            Browse companies and submit your first application.
           </p>
           <Link href="/dashboard/student/companies"
             className="px-5 py-2.5 rounded-xl text-sm font-semibold"
@@ -131,15 +126,11 @@ export default async function StudentApplicationsPage() {
               <div key={app.id} className="p-5 rounded-2xl"
                 style={{ background: '#101A2E', border: '0.5px solid rgba(255,255,255,0.06)' }}>
                 <div className="flex items-start gap-4">
-
-                  {/* Avatar */}
                   <div className="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold shrink-0"
                     style={{ background: 'rgba(59,130,246,0.15)', color: '#3B82F6',
                              fontFamily: 'var(--font-heading)' }}>
                     {initials}
                   </div>
-
-                  {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2 flex-wrap">
                       <div>
@@ -166,31 +157,33 @@ export default async function StudentApplicationsPage() {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-3 mt-3 flex-wrap">
-                      <span className="text-xs" style={{ color: 'var(--color-muted)' }}>
-                        Applied {date}
-                      </span>
-                      {app.document_url && (
-                        <a href={app.document_url} target="_blank" rel="noopener noreferrer"
-                          className="text-xs flex items-center gap-1 hover:opacity-80 transition-opacity"
-                          style={{ color: '#3B82F6', textDecoration: 'none' }}>
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24"
-                            stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round"
-                              d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                          </svg>
-                          View Document
-                        </a>
-                      )}
-                      {app.status === 'accepted' && (
-                        <span className="text-xs font-semibold" style={{ color: '#10B981' }}>
-                          🎉 Placement confirmed!
+                    <div className="flex items-center justify-between gap-3 mt-3 flex-wrap">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                          Applied {date}
                         </span>
-                      )}
-                      {app.status === 'declined' && (
-                        <span className="text-xs" style={{ color: '#EF4444' }}>
-                          Not successful — keep applying.
-                        </span>
+                        {app.document_url && (
+                          <a href={app.document_url} target="_blank" rel="noopener noreferrer"
+                            className="text-xs flex items-center gap-1 hover:opacity-80 transition-opacity"
+                            style={{ color: '#3B82F6', textDecoration: 'none' }}>
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24"
+                              stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round"
+                                d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                            </svg>
+                            View Document
+                          </a>
+                        )}
+                        {app.status === 'accepted' && (
+                          <span className="text-xs font-semibold" style={{ color: '#10B981' }}>
+                            🎉 Placement confirmed!
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Only show withdraw on pending */}
+                      {app.status === 'pending' && (
+                        <CancelApplication applicationId={app.id} />
                       )}
                     </div>
                   </div>

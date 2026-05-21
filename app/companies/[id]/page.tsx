@@ -34,7 +34,7 @@ export default async function DashboardCompanyProfilePage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  const { id } = await params
+  const { id }   = await params
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
