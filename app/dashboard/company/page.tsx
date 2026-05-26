@@ -44,7 +44,7 @@ export default async function CompanyDashboardPage() {
     .eq('user_id', user.id)
     .single()
 
-  if (!company) redirect('/auth/login')
+  if (!company) redirect('/auth/register')
 
   const { data: rows } = await supabase
     .from('applications')

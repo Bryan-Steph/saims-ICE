@@ -24,7 +24,7 @@ export default async function SupervisorDashboardPage() {
     .eq('user_id', user.id)
     .single()
 
-  if (!supervisor) redirect('/auth/login')
+  if (!supervisor) redirect('/auth/register')
 
   const { data: rows } = await supabase
     .from('reports')

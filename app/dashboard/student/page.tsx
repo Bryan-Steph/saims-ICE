@@ -32,7 +32,7 @@ export default async function StudentDashboardPage() {
     .eq('user_id', user.id)
     .single()
 
-  if (!student) redirect('/auth/login')
+  if (!student) redirect('/auth/register')
 
   // Fetch all applications with company info
   const { data: applications } = await supabase
