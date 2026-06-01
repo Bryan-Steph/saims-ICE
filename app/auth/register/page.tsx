@@ -113,33 +113,34 @@ export default function RegisterPage() {
     return null
   }
 
-  async function handleSubmit() {
-    const err = validate()
-    if (err) { setError(err); return }
+ async function handleSubmit() {
+  const err = validate()
+  if (err) { setError(err); return }
 
-    setLoading(true)
-    setError(null)
+  setLoading(true)
+  setError(null)
 
-    try {
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email:    creds.email.toLowerCase().trim(),
-        password: creds.password,
-      })
-      if (signUpError) throw signUpError
+  try {
+    const { data: authData, error: signUpError } = await supabase.auth.signUp({
+      email:    creds.email.toLowerCase().trim(),
+      password: creds.password,
+    })
+    if (signUpError) throw signUpError
 
-      const userId = authData.user?.id
-      if (!userId) throw new Error('Registration failed — no user returned. Check Supabase email confirmation is disabled.')
+    const userId = authData.user?.id
+    if (!userId) throw new Error('Registration failed — no user returned. Check Supabase email confirmation is disabled.')
 
-      // Insert role
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({ user_id: userId, role })
-      if (roleError) throw roleError
+    // Insert role — this fires auto_create_profile trigger, blank row now exists
+    const { error: roleError } = await supabase
+      .from('user_roles')
+      .insert({ user_id: userId, role })
+    if (roleError) throw roleError
 
-      // Insert role-specific profile
-      if (role === 'student') {
-        const { error: profileError } = await supabase.from('students').insert({
-          user_id:    userId,
+    // UPDATE the blank row the trigger just created
+    if (role === 'student') {
+      const { error: profileError } = await supabase
+        .from('students')
+        .update({
           first_name: student.firstName.trim(),
           last_name:  student.lastName.trim(),
           reg_number: student.regNumber.trim(),
@@ -147,44 +148,47 @@ export default function RegisterPage() {
           department: student.department.trim(),
           level:      student.level,
         })
-        if (profileError) throw profileError
-      }
+        .eq('user_id', userId)
+      if (profileError) throw profileError
+    }
 
-      if (role === 'company') {
-        const { error: profileError } = await supabase.from('companies').insert({
-          user_id:     userId,
+    if (role === 'company') {
+      const { error: profileError } = await supabase
+        .from('companies')
+        .update({
           name:        company.name.trim(),
           industry:    company.industry,
           location:    company.location.trim(),
           size:        company.size,
           description: company.description.trim(),
         })
-        if (profileError) throw profileError
-      }
+        .eq('user_id', userId)
+      if (profileError) throw profileError
+    }
 
-      if (role === 'supervisor') {
-        const { error: profileError } = await supabase.from('supervisors').insert({
-          user_id:     userId,
+    if (role === 'supervisor') {
+      const { error: profileError } = await supabase
+        .from('supervisors')
+        .update({
           title:       supervisor.title,
           full_name:   supervisor.fullName.trim(),
           institution: supervisor.institution.trim(),
           department:  supervisor.department.trim(),
           staff_id:    supervisor.staffId.trim(),
         })
-        if (profileError) throw profileError
-      }
-
-      setStep(3)
-      // Short delay then redirect so user sees success state
-      setTimeout(() => router.push(`/dashboard/${role}`), 2000)
-
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.')
-    } finally {
-      setLoading(false)
+        .eq('user_id', userId)
+      if (profileError) throw profileError
     }
-  }
 
+    setStep(3)
+    setTimeout(() => router.push(`/dashboard/${role}`), 2000)
+
+  } catch (e: unknown) {
+    setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.')
+  } finally {
+    setLoading(false)
+  }
+}
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (

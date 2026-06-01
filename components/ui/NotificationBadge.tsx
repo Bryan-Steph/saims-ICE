@@ -1,25 +1,37 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 
 export function NotificationBadge() {
   const [count, setCount] = useState(0)
 
-  const refresh = useCallback(async () => {
-    const supabase = createClient()
-    const { count: n } = await supabase
-      .from('notifications')
-      .select('*', { count: 'exact', head: true })
-      .eq('read', false)
-    setCount(n ?? 0)
-  }, [])
-
   useEffect(() => {
-    refresh()
-    const t = setInterval(refresh, 30_000)
-    return () => clearInterval(t)
-  }, [refresh])
+    let cancelled = false
+
+    async function fetchCount() {
+      const supabase = createClient()
+
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user || cancelled) return
+
+      const { count: n } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('read', false)
+
+      if (!cancelled) setCount(n ?? 0)
+    }
+
+    fetchCount()
+    const t = setInterval(fetchCount, 30_000)
+
+    return () => {
+      cancelled = true
+      clearInterval(t)
+    }
+  }, [])
 
   if (count === 0) return null
 
