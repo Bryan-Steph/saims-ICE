@@ -9,7 +9,7 @@ type Application = {
   applied_at: string
   motivation: string
   document_url: string | null
-  companies: { name: string; industry: string; location: string } | null
+companies: { name: string; industry: string; location: string; logo_url: string | null } | null
 }
 
 const STATUS_CONFIG = {
