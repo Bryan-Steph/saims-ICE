@@ -23,7 +23,7 @@ export default async function SupervisorNotificationsPage() {
     .order('created_at', { ascending: false })
 
   return (
-    <DashboardShell name={supervisor.full_name} role="supervisor">
+<DashboardShell name={supervisor.full_name ?? ''} role="supervisor">
       <NotificationFeed notifications={notifications ?? []} />
     </DashboardShell>
   )
