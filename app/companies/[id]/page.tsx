@@ -3,7 +3,6 @@ import { notFound }       from 'next/navigation'
 import Link               from 'next/link'
 import { createClient }   from '@/lib/supabase-server'
 import { DashboardShell } from '@/components/ui/DashboardShell'
-import { Badge }          from '@/components/ui/Badge'
 import { ApplyButton }    from '@/components/ui/ApplyButton'
 
 type Company = {
@@ -46,10 +45,13 @@ export default async function DashboardCompanyProfilePage({
 
   const displayName = `${studentRow.first_name} ${studentRow.last_name}`
 
+  // Fetch the company profile, explicitly ensuring it has an 'approved' status
   const { data: company } = await supabase
     .from('companies')
     .select('id, name, industry, location, size, description, slots_available, avg_rating')
-    .eq('id', id).single()
+    .eq('id', id)
+    .eq('verification_status', 'approved')
+    .single()
   if (!company) return notFound()
 
   const c = company as Company

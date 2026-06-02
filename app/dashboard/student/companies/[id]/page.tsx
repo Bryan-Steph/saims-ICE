@@ -43,12 +43,13 @@ export default async function DashboardCompanyProfilePage({
 
   if (!studentRow) return notFound()
 
-  const { data: companyData } = await supabase
+ const { data: companyData } = await supabase
     .from('companies')
-    .select('id, name, industry, location, size, description, slots_available, avg_rating')
+    .select('id, name, industry, location, size, description, slots_available, avg_rating, verification_status')
     .eq('id', id)
+    .eq('verification_status', 'approved')
     .single()
-
+    
   if (!companyData) return notFound()
 
   const c = companyData as Company

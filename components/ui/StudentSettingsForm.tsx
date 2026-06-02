@@ -1,193 +1,315 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
+import { useState, useRef } from 'react'
+import { useRouter }         from 'next/navigation'
+import { createClient }      from '@/lib/supabase'
 
 type Student = {
-  id:         string
-  first_name: string
-  last_name:  string
-  university: string
-  department: string
-  level:      string
-  reg_number: string
+  id:          string
+  first_name:  string
+  last_name:   string
+  reg_number:  string
+  department:  string
+  university:  string
+  level:       string
+  avatar_url:  string | null
 }
 
-const LEVELS = ['100L', '200L', '300L', '400L', '500L', 'HND1', 'HND2']
+interface Props {
+  student: Student
+  userId:  string
+  email:   string
+}
 
-export function StudentSettingsForm({ student }: { student: Student }) {
-  const router = useRouter()
-  const [saving,  setSaving]  = useState(false)
-  const [error,   setError]   = useState('')
-  const [success, setSuccess] = useState('')
+const LEVELS = ['100L', '200L', '300L', '400L', '500L', 'HND 1', 'HND 2', 'Masters']
+
+function Field({
+  label, children,
+}: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-[10px] font-semibold mb-1.5"
+        style={{ color: 'var(--color-muted)', fontFamily: 'var(--font-mono)' }}>
+        {label}
+      </label>
+      {children}
+    </div>
+  )
+}
+
+const INPUT_STYLE: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.04)',
+  border:     '1px solid rgba(255,255,255,0.08)',
+  color:      'var(--color-tx)',
+  borderRadius: 12,
+  padding:    '10px 16px',
+  fontSize:   14,
+  width:      '100%',
+  outline:    'none',
+}
+
+const CARD: React.CSSProperties = {
+  background: '#101A2E',
+  border:     '0.5px solid rgba(255,255,255,0.06)',
+  borderRadius: 16,
+  padding:    '20px 24px',
+  marginBottom: 12,
+}
+
+export function StudentSettingsForm({ student, userId, email }: Props) {
+  const router         = useRouter()
+  const fileRef        = useRef<HTMLInputElement>(null)
 
   const [form, setForm] = useState({
-    first_name: student.first_name,
-    last_name:  student.last_name,
-    university: student.university,
-    department: student.department,
-    level:      student.level,
+    first_name:  student.first_name,
+    last_name:   student.last_name,
+    reg_number:  student.reg_number,
+    department:  student.department,
+    university:  student.university,
+    level:       student.level,
   })
 
-  function set(field: string, value: string) {
-    setForm(f => ({ ...f, [field]: value }))
+  const [avatarUrl,     setAvatarUrl]     = useState<string | null>(student.avatar_url)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const [uploading,     setUploading]     = useState(false)
+  const [saving,        setSaving]        = useState(false)
+  const [saved,         setSaved]         = useState(false)
+  const [error,         setError]         = useState<string | null>(null)
+
+  function set(field: keyof typeof form, value: string) {
+    setForm(prev => ({ ...prev, [field]: value }))
+    setSaved(false)
+  }
+
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 2 * 1024 * 1024) { setError('File must be under 2 MB.'); return }
+
+    // Immediate local preview
+    const reader = new FileReader()
+    reader.onload = ev => setAvatarPreview(ev.target?.result as string)
+    reader.readAsDataURL(file)
+
+    setUploading(true)
+    setError(null)
+    try {
+      const sb   = createClient()
+      const path = `${userId}/avatar`            // fixed path → upsert replaces old photo
+
+      const { error: upErr } = await sb.storage
+        .from('avatars')
+        .upload(path, file, { upsert: true, contentType: file.type })
+      if (upErr) throw upErr
+
+      const { data: { publicUrl } } = sb.storage
+        .from('avatars')
+        .getPublicUrl(path)
+
+      // Bust browser cache with a timestamp
+      setAvatarUrl(`${publicUrl}?t=${Date.now()}`)
+    } catch {
+      setError('Photo upload failed. Please try again.')
+      setAvatarPreview(null)
+    } finally {
+      setUploading(false)
+    }
   }
 
   async function handleSave() {
-    setError('')
-    setSuccess('')
-
-    if (!form.first_name.trim() || !form.last_name.trim() ||
-        !form.university.trim() || !form.department.trim() || !form.level) {
-      setError('All fields are required.')
+    if (!form.first_name.trim() || !form.last_name.trim()) {
+      setError('First and last name are required.')
       return
     }
-
     setSaving(true)
-    const supabase = createClient()
-
-    const { error: dbErr } = await supabase
-      .from('students')
-      .update({
-        first_name: form.first_name.trim(),
-        last_name:  form.last_name.trim(),
-        university: form.university.trim(),
-        department: form.department.trim(),
-        level:      form.level,
-      })
-      .eq('id', student.id)
-
-    setSaving(false)
-
-    if (dbErr) {
+    setError(null)
+    try {
+      const sb = createClient()
+      const { error: updateErr } = await sb
+        .from('students')
+        .update({
+          first_name: form.first_name.trim(),
+          last_name:  form.last_name.trim(),
+          reg_number: form.reg_number.trim(),
+          department: form.department.trim(),
+          university: form.university.trim(),
+          level:      form.level,
+          avatar_url: avatarUrl,
+        })
+        .eq('id', student.id)
+      if (updateErr) throw updateErr
+  setSaved(true)
+window.location.reload()
+    } catch {
       setError('Failed to save. Please try again.')
-      return
+    } finally {
+      setSaving(false)
     }
-
-    setSuccess('Profile updated successfully.')
-    router.refresh()
-    setTimeout(() => setSuccess(''), 4000)
   }
 
-  return (
-    <div style={{ maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 20 }}>
+  const displayAvatar = avatarPreview ?? avatarUrl
+  const initials      = `${form.first_name[0] ?? ''}${form.last_name[0] ?? ''}`.toUpperCase()
 
+  return (
+    <div>
+      {/* ── Header ── */}
+      <div className="mb-8">
+        <p className="text-[10px] font-semibold tracking-widest mb-1.5"
+          style={{ color: '#3B82F6', fontFamily: 'var(--font-mono)' }}>
+          STUDENT SETTINGS
+        </p>
+        <h1 className="text-2xl sm:text-3xl font-bold"
+          style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-tx)' }}>
+          Edit Profile
+        </h1>
+        <p className="mt-1 text-sm" style={{ color: 'var(--color-muted)' }}>
+          Update your personal information and profile photo.
+        </p>
+      </div>
+
+      {/* ── Error banner ── */}
       {error && (
-        <div className="px-4 py-3 rounded-xl text-sm"
-          style={{ background: 'rgba(239,68,68,0.1)', color: '#EF4444',
-                   border: '1px solid rgba(239,68,68,0.2)' }}>
+        <div className="mb-5 px-4 py-3 rounded-xl text-sm"
+          style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444' }}>
           {error}
         </div>
       )}
-      {success && (
-        <div className="px-4 py-3 rounded-xl text-sm"
-          style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981',
-                   border: '1px solid rgba(16,185,129,0.2)' }}>
-          ✓ {success}
-        </div>
-      )}
 
-      <div className="p-5 rounded-2xl"
-        style={{ background: '#101A2E', border: '0.5px solid rgba(255,255,255,0.06)' }}>
-        <h2 className="text-sm font-bold mb-4"
-          style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-tx)' }}>
-          Personal Information
-        </h2>
-
-        {/* Read-only reg number */}
-        <div className="mb-4 px-4 py-3 rounded-xl"
-          style={{ background: 'rgba(255,255,255,0.03)', border: '0.5px solid rgba(255,255,255,0.06)' }}>
-          <p className="text-[10px] mb-0.5"
-            style={{ color: 'var(--color-muted)', fontFamily: 'var(--font-mono)' }}>
-            MATRICULE NUMBER (cannot be changed)
-          </p>
-          <p className="text-sm font-medium" style={{ color: 'var(--color-tx)' }}>
-            {student.reg_number}
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {[
-              { key: 'first_name', label: 'FIRST NAME' },
-              { key: 'last_name',  label: 'LAST NAME'  },
-            ].map(({ key, label }) => (
-              <div key={key}>
-                <label className="text-[10px] font-semibold mb-1.5 block"
-                  style={{ color: 'var(--color-muted)', fontFamily: 'var(--font-mono)' }}>
-                  {label}
-                </label>
-                <input
-                  type="text"
-                  value={form[key as keyof typeof form]}
-                  onChange={e => set(key, e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: '#0D1526', border: '0.5px solid rgba(255,255,255,0.1)',
-                           color: 'var(--color-tx)' }}
-                />
+      {/* ── Profile Photo ── */}
+      <div style={CARD}>
+        <p className="text-sm font-semibold mb-5"
+          style={{ color: 'var(--color-tx)', fontFamily: 'var(--font-heading)' }}>
+          Profile Photo
+        </p>
+        <div className="flex items-center gap-5 flex-wrap">
+          {/* Avatar circle */}
+          <div className="w-20 h-20 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center"
+            style={{ background: 'rgba(59,130,246,0.2)', position: 'relative' }}>
+            {displayAvatar ? (
+              <img src={displayAvatar} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-2xl font-bold"
+                style={{ color: '#3B82F6', fontFamily: 'var(--font-heading)' }}>
+                {initials}
+              </span>
+            )}
+            {uploading && (
+              <div className="absolute inset-0 flex items-center justify-center"
+                style={{ background: 'rgba(0,0,0,0.55)' }}>
+                <div className="w-6 h-6 rounded-full border-2"
+                  style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff',
+                           animation: 'spin 0.7s linear infinite' }} />
               </div>
-            ))}
+            )}
           </div>
 
+          {/* Upload controls */}
           <div>
-            <label className="text-[10px] font-semibold mb-1.5 block"
-              style={{ color: 'var(--color-muted)', fontFamily: 'var(--font-mono)' }}>
-              UNIVERSITY
-            </label>
             <input
-              type="text"
-              value={form.university}
-              onChange={e => set('university', e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-              style={{ background: '#0D1526', border: '0.5px solid rgba(255,255,255,0.1)',
-                       color: 'var(--color-tx)' }}
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handlePhotoChange}
             />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="text-[10px] font-semibold mb-1.5 block"
-                style={{ color: 'var(--color-muted)', fontFamily: 'var(--font-mono)' }}>
-                DEPARTMENT
-              </label>
-              <input
-                type="text"
-                value={form.department}
-                onChange={e => set('department', e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                style={{ background: '#0D1526', border: '0.5px solid rgba(255,255,255,0.1)',
-                         color: 'var(--color-tx)' }}
-              />
-            </div>
-
-            <div>
-              <label className="text-[10px] font-semibold mb-1.5 block"
-                style={{ color: 'var(--color-muted)', fontFamily: 'var(--font-mono)' }}>
-                LEVEL
-              </label>
-              <select
-                value={form.level}
-                onChange={e => set('level', e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                style={{ background: '#0D1526', border: '0.5px solid rgba(255,255,255,0.1)',
-                         color: 'var(--color-tx)' }}
-              >
-                {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-              </select>
-            </div>
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              className="px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-80 transition-opacity"
+              style={{
+                background: 'rgba(59,130,246,0.1)', color: '#3B82F6',
+                border: '1px solid rgba(59,130,246,0.25)',
+                cursor: uploading ? 'not-allowed' : 'pointer',
+                display: 'block', marginBottom: 8,
+              }}>
+              {uploading ? 'Uploading…' : displayAvatar ? 'Change Photo' : 'Upload Photo'}
+            </button>
+            <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
+              JPG, PNG or WebP · Max 2 MB
+            </p>
           </div>
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={handleSave}
-        disabled={saving}
-        className="px-8 py-3 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80 disabled:opacity-50 self-start"
-        style={{ background: '#3B82F6', color: '#fff' }}>
-        {saving ? 'Saving…' : 'Save Changes'}
-      </button>
+      {/* ── Personal Information ── */}
+      <div style={CARD}>
+        <p className="text-sm font-semibold mb-5"
+          style={{ color: 'var(--color-tx)', fontFamily: 'var(--font-heading)' }}>
+          Personal Information
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="FIRST NAME">
+            <input type="text" value={form.first_name}
+              onChange={e => set('first_name', e.target.value)}
+              style={INPUT_STYLE} />
+          </Field>
+          <Field label="LAST NAME">
+            <input type="text" value={form.last_name}
+              onChange={e => set('last_name', e.target.value)}
+              style={INPUT_STYLE} />
+          </Field>
+          <Field label="REGISTRATION NUMBER">
+            <input type="text" value={form.reg_number}
+              onChange={e => set('reg_number', e.target.value)}
+              style={INPUT_STYLE} />
+          </Field>
+          <Field label="LEVEL">
+            <select value={form.level}
+              onChange={e => set('level', e.target.value)}
+              style={{ ...INPUT_STYLE, cursor: 'pointer' }}>
+              {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </Field>
+          <Field label="DEPARTMENT">
+            <input type="text" value={form.department}
+              onChange={e => set('department', e.target.value)}
+              style={INPUT_STYLE} />
+          </Field>
+          <Field label="UNIVERSITY / INSTITUTION">
+            <input type="text" value={form.university}
+              onChange={e => set('university', e.target.value)}
+              style={INPUT_STYLE} />
+          </Field>
+        </div>
+      </div>
+
+      {/* ── Account (read-only) ── */}
+      <div style={CARD}>
+        <p className="text-sm font-semibold mb-5"
+          style={{ color: 'var(--color-tx)', fontFamily: 'var(--font-heading)' }}>
+          Account
+        </p>
+        <Field label="EMAIL ADDRESS">
+          <input type="text" value={email} readOnly
+            style={{ ...INPUT_STYLE, background: 'rgba(255,255,255,0.02)',
+                     border: '1px solid rgba(255,255,255,0.05)',
+                     color: 'var(--color-muted)', cursor: 'not-allowed' }} />
+        </Field>
+        <p className="text-xs mt-1.5" style={{ color: 'var(--color-muted)' }}>
+          To change your email, use the forgot password flow.
+        </p>
+      </div>
+
+      {/* ── Save ── */}
+      <div className="flex items-center gap-4 mt-2">
+        <button
+          onClick={handleSave}
+          disabled={saving || uploading}
+          className="px-6 py-2.5 rounded-xl text-sm font-bold hover:opacity-90 transition-opacity"
+          style={{
+            background: '#3B82F6', color: '#fff',
+            cursor: (saving || uploading) ? 'not-allowed' : 'pointer',
+            opacity: (saving || uploading) ? 0.7 : 1,
+          }}>
+          {saving ? 'Saving…' : 'Save Changes'}
+        </button>
+        {saved && !saving && (
+          <span className="text-sm" style={{ color: '#10B981' }}>✓ Changes saved</span>
+        )}
+      </div>
+
+      {/* Spinner keyframe */}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }

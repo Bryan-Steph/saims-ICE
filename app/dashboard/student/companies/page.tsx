@@ -44,9 +44,10 @@ export default async function StudentCompaniesPage({
     .single()
 
   // Fetch all companies with available slots
-  let query = supabase
+ let query = supabase
     .from('companies')
     .select('id, name, industry, location, size, description, slots_available, avg_rating')
+    .eq('verification_status', 'approved')
     .order('name', { ascending: true })
 
   if (rawIndustry && rawIndustry !== 'All') {
