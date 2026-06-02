@@ -11,13 +11,10 @@ export async function proxy(request: NextRequest) {
       cookies: {
         getAll() { return request.cookies.getAll() },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          )
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           supabaseResponse = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
+            supabaseResponse.cookies.set(name, value, options))
         },
       },
     }
@@ -26,60 +23,79 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
 
-  // ── Not logged in → send to login ──────────────────────────
-  if (pathname.startsWith('/dashboard') && !user) {
-    return NextResponse.redirect(new URL('/auth/login', request.url))
-  }
+  // ── Dashboard protection ──────────────────────────────────────────────────
+  if (pathname.startsWith('/dashboard')) {
+    if (!user) return NextResponse.redirect(new URL('/auth/login', request.url))
 
-  // ── Already logged in → don't show auth pages ──────────────
-  if (pathname.startsWith('/auth') && user) {
     const { data: roleData } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .single()
-
+      .from('user_roles').select('role').eq('user_id', user.id).single()
     const role = roleData?.role
+
     if (role) {
-      return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url))
+      // Wrong-dashboard guard (blocks cross-role access)
+      if (pathname.startsWith('/dashboard/student')    && role !== 'student')
+        return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url))
+      if (pathname.startsWith('/dashboard/company')    && role !== 'company')
+        return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url))
+      if (pathname.startsWith('/dashboard/supervisor') && role !== 'supervisor')
+        return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url))
+      if (pathname.startsWith('/dashboard/admin')      && role !== 'admin')
+        return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url))
+
+      // Verification gate — unverified company/supervisor cannot enter dashboard
+      if (role === 'company' || role === 'supervisor') {
+        const table = role === 'company' ? 'companies' : 'supervisors'
+        const { data: profileData } = await supabase
+          .from(table)
+          .select('verification_status')
+          .eq('user_id', user.id)
+          .single()
+        if (profileData?.verification_status !== 'approved') {
+          return NextResponse.redirect(new URL('/verification-pending', request.url))
+        }
+      }
     }
-    // If role lookup fails, let them stay on auth page
-    return supabaseResponse
   }
 
-  // ── Logged in on dashboard → ONLY redirect if wrong role ───
-  // CRITICAL: if role lookup fails (null), DO NOT redirect — let page handle it
-  if (pathname.startsWith('/dashboard') && user) {
-    const { data: roleData } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .single()
+  // ── Verification pending page ─────────────────────────────────────────────
+  if (pathname === '/verification-pending') {
+    if (!user) return NextResponse.redirect(new URL('/auth/login', request.url))
 
+    const { data: roleData } = await supabase
+      .from('user_roles').select('role').eq('user_id', user.id).single()
     const role = roleData?.role
 
-    // If we couldn't get the role, pass through — don't redirect
-    if (!role) return supabaseResponse
+    if (role) {
+      // Students and admins don't belong here
+      if (role === 'student' || role === 'admin')
+        return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url))
 
-    // Only redirect if they're on the WRONG role's dashboard
-    const onStudent    = pathname.startsWith('/dashboard/student')
-    const onCompany    = pathname.startsWith('/dashboard/company')
-    const onSupervisor = pathname.startsWith('/dashboard/supervisor')
+      // Already approved — send to their dashboard
+      if (role === 'company' || role === 'supervisor') {
+        const table = role === 'company' ? 'companies' : 'supervisors'
+        const { data: profileData } = await supabase
+          .from(table)
+          .select('verification_status')
+          .eq('user_id', user.id)
+          .single()
+        if (profileData?.verification_status === 'approved')
+          return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url))
+      }
+    }
+  }
 
-    if (onStudent && role !== 'student') {
-      return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url))
-    }
-    if (onCompany && role !== 'company') {
-      return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url))
-    }
-    if (onSupervisor && role !== 'supervisor') {
-      return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url))
-    }
+  // ── Auth pages — redirect logged-in users to their dashboard ─────────────
+  if (pathname.startsWith('/auth') && user) {
+    if (pathname.startsWith('/auth/register')) return supabaseResponse
+    const { data: roleData } = await supabase
+      .from('user_roles').select('role').eq('user_id', user.id).single()
+    const role = roleData?.role
+    if (role) return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url))
   }
 
   return supabaseResponse
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/auth/:path*'],
+  matcher: ['/dashboard/:path*', '/auth/:path*', '/verification-pending'],
 }

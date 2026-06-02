@@ -113,90 +113,95 @@ export default function RegisterPage() {
     return null
   }
 
- async function handleSubmit() {
-  const err = validate()
-  if (err) { setError(err); return }
+  async function handleSubmit() {
+    const err = validate()
+    if (err) { setError(err); return }
 
-  setLoading(true)
-  setError(null)
+    setLoading(true)
+    setError(null)
 
-  try {
-    const { data: authData, error: signUpError } = await supabase.auth.signUp({
-      email:    creds.email.toLowerCase().trim(),
-      password: creds.password,
-    })
-    if (signUpError) throw signUpError
+    try {
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email:    creds.email.toLowerCase().trim(),
+        password: creds.password,
+      })
+      if (signUpError) throw signUpError
 
-    const userId = authData.user?.id
-    if (!userId) throw new Error('Registration failed — no user returned. Check Supabase email confirmation is disabled.')
+      const userId = authData.user?.id
+      if (!userId) throw new Error('Registration failed — no user returned. Check Supabase email confirmation is disabled.')
 
-    // Insert role — this fires auto_create_profile trigger, blank row now exists
-    const { error: roleError } = await supabase
-      .from('user_roles')
-      .insert({ user_id: userId, role })
-    if (roleError) throw roleError
+      // Insert role — this fires auto_create_profile trigger, blank row now exists
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .insert({ user_id: userId, role })
+      if (roleError) throw roleError
 
-    // UPDATE the blank row the trigger just created
-    if (role === 'student') {
-      const { error: profileError } = await supabase
-        .from('students')
-        .update({
-          first_name: student.firstName.trim(),
-          last_name:  student.lastName.trim(),
-          reg_number: student.regNumber.trim(),
-          university: student.university.trim(),
-          department: student.department.trim(),
-          level:      student.level,
-        })
-        .eq('user_id', userId)
-      if (profileError) throw profileError
+      // UPDATE the blank row the trigger just created
+      if (role === 'student') {
+        const { error: profileError } = await supabase
+          .from('students')
+          .update({
+            first_name: student.firstName.trim(),
+            last_name:  student.lastName.trim(),
+            reg_number: student.regNumber.trim(),
+            university: student.university.trim(),
+            department: student.department.trim(),
+            level:      student.level,
+          })
+          .eq('user_id', userId)
+        if (profileError) throw profileError
+      }
+
+      if (role === 'company') {
+        const { error: profileError } = await supabase
+          .from('companies')
+          .update({
+            name:        company.name.trim(),
+            industry:    company.industry,
+            location:    company.location.trim(),
+            size:        company.size,
+            description: company.description.trim(),
+          })
+          .eq('user_id', userId)
+        if (profileError) throw profileError
+      }
+
+      if (role === 'supervisor') {
+        const { error: profileError } = await supabase
+          .from('supervisors')
+          .update({
+            title:       supervisor.title,
+            full_name:   supervisor.fullName.trim(),
+            institution: supervisor.institution.trim(),
+            department:  supervisor.department.trim(),
+            staff_id:    supervisor.staffId.trim(),
+          })
+          .eq('user_id', userId)
+        if (profileError) throw profileError
+      }
+
+      setStep(3)
+      // Company and supervisor go to verification, students go straight to dashboard
+      const destination = (role === 'company' || role === 'supervisor')
+        ? '/verification-pending'
+        : `/dashboard/${role}`
+      setTimeout(() => router.push(destination), 2500)
+
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.')
+    } finally {
+      setLoading(false)
     }
-
-    if (role === 'company') {
-      const { error: profileError } = await supabase
-        .from('companies')
-        .update({
-          name:        company.name.trim(),
-          industry:    company.industry,
-          location:    company.location.trim(),
-          size:        company.size,
-          description: company.description.trim(),
-        })
-        .eq('user_id', userId)
-      if (profileError) throw profileError
-    }
-
-    if (role === 'supervisor') {
-      const { error: profileError } = await supabase
-        .from('supervisors')
-        .update({
-          title:       supervisor.title,
-          full_name:   supervisor.fullName.trim(),
-          institution: supervisor.institution.trim(),
-          department:  supervisor.department.trim(),
-          staff_id:    supervisor.staffId.trim(),
-        })
-        .eq('user_id', userId)
-      if (profileError) throw profileError
-    }
-
-    setStep(3)
-    setTimeout(() => router.push(`/dashboard/${role}`), 2000)
-
-  } catch (e: unknown) {
-    setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.')
-  } finally {
-    setLoading(false)
   }
-}
+
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
     <main className="page-center">
       <div className="auth-card w-full" style={{ maxWidth: step === 1 ? '42rem' : '30rem' }}>
         <Link href="/" className="inline-flex items-center gap-1.5 text-xs mb-6" style={{ color: 'var(--color-muted)' }}>
-     ← Back to home
-   </Link>
+          ← Back to home
+        </Link>
 
         {/* Logo */}
         <div className="mb-8 flex items-center justify-between">
@@ -400,21 +405,35 @@ export default function RegisterPage() {
           <div className="flex flex-col items-center text-center py-8">
             <div
               className="w-16 h-16 rounded-full flex items-center justify-center mb-6"
-              style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)' }}
+              style={{
+                background: (role === 'company' || role === 'supervisor')
+                  ? 'rgba(245,158,11,0.12)' : 'rgba(16,185,129,0.12)',
+                border: `1px solid ${(role === 'company' || role === 'supervisor')
+                  ? 'rgba(245,158,11,0.25)' : 'rgba(16,185,129,0.25)'}`,
+              }}
             >
-              <svg className="w-8 h-8" style={{ color: '#10B981' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
+              {(role === 'company' || role === 'supervisor') ? (
+                <svg className="w-8 h-8" style={{ color: '#F59E0B' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+                </svg>
+              ) : (
+                <svg className="w-8 h-8" style={{ color: '#10B981' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              )}
             </div>
             <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: 'var(--font-heading)' }}>
-              You&apos;re in!
+              {(role === 'company' || role === 'supervisor') ? 'Account Created' : "You're in!"}
             </h1>
             <p className="text-sm mb-6" style={{ color: 'var(--color-muted)' }}>
-              Account created. Taking you to your dashboard…
+              {(role === 'company' || role === 'supervisor')
+                ? 'Taking you to upload your verification document…'
+                : 'Account created. Taking you to your dashboard…'}
             </p>
-<span style={{ color: 'var(--color-accent)' }}>
-  <Spinner size="sm" />
-</span>          </div>
+            <span style={{ color: 'var(--color-accent)' }}>
+              <Spinner size="sm" />
+            </span>
+          </div>
         )}
 
       </div>
