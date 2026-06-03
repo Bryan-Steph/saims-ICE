@@ -1,40 +1,50 @@
 'use client'
 
-import { useState }      from 'react'
-import { useRouter }     from 'next/navigation'
-import Link              from 'next/link'
-import { createClient }  from '@/lib/supabase'
-import { Button }        from '@/components/ui/Button'
-import { Input }         from '@/components/ui/Input'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
 
 export default function LoginPage() {
-  const router    = useRouter()
-  const supabase  = createClient()
+  const router = useRouter()
+  const supabase = createClient()
 
-  const [email,    setEmail]    = useState('')
+  // --- State Hooks ---
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
-  const [loading,  setLoading]  = useState(false)
-  const [error,    setError]    = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
+  // --- Request Handlers ---
   async function handleLogin() {
-    if (!email.includes('@'))    { setError('Enter a valid email.'); return }
-    if (password.length < 1)     { setError('Enter your password.'); return }
+    if (!email.includes('@')) { 
+      setError('Enter a valid email.')
+      return 
+    }
+    if (password.length < 1) { 
+      setError('Enter your password.')
+      return 
+    }
 
     setLoading(true)
     setError(null)
 
     try {
+      // 1. Sign in via Supabase Auth
       const { error: signInError } = await supabase.auth.signInWithPassword({
-        email:    email.toLowerCase().trim(),
+        email: email.toLowerCase().trim(),
         password,
       })
       if (signInError) throw signInError
 
-      // Fetch role then redirect — proxy.ts will also enforce this
+      // 2. Fetch authenticated user data
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Login failed.')
 
+      // 3. Fetch user role to determine routing redirect
       const { data: roleData } = await supabase
         .from('user_roles')
         .select('role')
@@ -57,18 +67,24 @@ export default function LoginPage() {
   return (
     <main className="page-center">
       <div className="auth-card">
+        
+        {/* Navigation Link */}
+        <Link 
+          href="/" 
+          className="inline-flex items-center gap-1.5 text-xs mb-6 hover:brightness-125 transition-all" 
+          style={{ color: 'var(--color-muted)' }}
+        >
+          ← Back to home
+        </Link>
 
-        <Link href="/" className="inline-flex items-center gap-1.5 text-xs mb-6" style={{ color: 'var(--color-muted)' }}>
-     ← Back to home
-   </Link>
-
-        {/* Logo */}
+        {/* Brand Logo */}
         <div className="mb-8">
           <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.25rem', color: 'var(--color-tx)' }}>
             Attach<span style={{ color: 'var(--color-accent)' }}>Hub</span>
           </span>
         </div>
 
+        {/* Headers */}
         <h1 className="text-2xl font-bold mb-1" style={{ fontFamily: 'var(--font-heading)' }}>
           Welcome back
         </h1>
@@ -76,7 +92,10 @@ export default function LoginPage() {
           Sign in to your AttachHub account.
         </p>
 
+        {/* Login Form Container */}
         <div className="flex flex-col gap-4">
+          
+          {/* Email Input */}
           <Input
             label="Email address"
             type="email"
@@ -87,23 +106,37 @@ export default function LoginPage() {
             onKeyDown={e => e.key === 'Enter' && handleLogin()}
           />
 
-          {/* Password with show/hide */}
+          {/* Password Input Block */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium" style={{ color: 'var(--color-tx)' }}>Password</label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium" style={{ color: 'var(--color-tx)' }}>
+                Password
+              </label>
+              <Link 
+                href="/auth/forgot-password"
+                className="hover:underline"
+                style={{ color: '#8BA4C8', fontSize: '0.8rem' }}
+              >
+                Forgot password?
+              </Link>
+            </div>
+            
             <div className="relative">
-              <input
+              <Input
                 type={showPass ? 'text' : 'password'}
                 placeholder="Your password"
                 autoComplete="current-password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                className="field pr-11"
+                className="pr-11"
               />
+              
+              {/* Password Visibility Toggle */}
               <button
                 type="button"
                 onClick={() => setShowPass(v => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:text-white"
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted)' }}
                 aria-label={showPass ? 'Hide password' : 'Show password'}
               >
@@ -121,19 +154,27 @@ export default function LoginPage() {
             </div>
           </div>
 
+          {/* Error Message Feedbacks */}
           {error && (
-            <p className="text-sm px-4 py-3 rounded-lg" style={{ color: 'var(--color-danger)', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)' }}>
+            <p 
+              className="text-sm px-4 py-3 rounded-lg" 
+              style={{ color: 'var(--color-danger)', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)' }}
+            >
               {error}
             </p>
           )}
 
+          {/* Action Call Button */}
           <Button fullWidth loading={loading} onClick={handleLogin}>
             Sign in
           </Button>
 
-          <p className="text-sm text-center" style={{ color: 'var(--color-muted)' }}>
+          {/* Registration Redirect */}
+          <p className="text-sm text-center mt-2" style={{ color: 'var(--color-muted)' }}>
             No account yet?{' '}
-            <Link href="/auth/register" style={{ color: 'var(--color-accent)' }}>Create one →</Link>
+            <Link href="/auth/register" style={{ color: 'var(--color-accent)' }} className="hover:underline">
+              Create one →
+            </Link>
           </p>
         </div>
 

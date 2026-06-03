@@ -85,10 +85,11 @@ export async function proxy(request: NextRequest) {
   }
 
   // ── Auth pages — redirect logged-in users to their dashboard ─────────────
-  if (pathname.startsWith('/auth') && user) {
-    if (pathname.startsWith('/auth/register')) return supabaseResponse
-    const { data: roleData } = await supabase
-      .from('user_roles').select('role').eq('user_id', user.id).single()
+if (pathname.startsWith('/auth') && user) {
+  if (pathname.startsWith('/auth/register'))       return supabaseResponse
+  if (pathname.startsWith('/auth/reset-password')) return supabaseResponse
+  const { data: roleData } = await supabase
+    .from('user_roles').select('role').eq('user_id', user.id).single()
     const role = roleData?.role
     if (role) return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url))
   }
