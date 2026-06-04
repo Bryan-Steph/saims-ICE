@@ -17,6 +17,10 @@ export default function LoginPage() {
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  
+  // Unverified user tracking
+  const [unverifiedEmail, setUnverifiedEmail] = useState('')
+  const [resendSent, setResendSent] = useState(false)
 
   // --- Request Handlers ---
   async function handleLogin() {
@@ -31,6 +35,8 @@ export default function LoginPage() {
 
     setLoading(true)
     setError(null)
+    setUnverifiedEmail('')
+    setResendSent(false)
 
     try {
       // 1. Sign in via Supabase Auth
@@ -54,13 +60,33 @@ export default function LoginPage() {
       router.push(`/dashboard/${roleData?.role ?? 'student'}`)
 
     } catch (e: unknown) {
-      setError(
-        e instanceof Error && e.message.includes('Invalid login credentials')
-          ? 'Incorrect email or password.'
-          : e instanceof Error ? e.message : 'Login failed. Try again.'
-      )
+      if (e instanceof Error) {
+        const msg = e.message.toLowerCase()
+        if (msg.includes('email not confirmed')) {
+          setError('Please verify your email before signing in.')
+          setUnverifiedEmail(email.toLowerCase().trim())
+        } else if (msg.includes('invalid login credentials')) {
+          setError('Incorrect email or password.')
+        } else {
+          setError(e.message)
+        }
+      } else {
+        setError('Login failed. Try again.')
+      }
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleResend() {
+    try {
+      await supabase.auth.resend({ 
+        type: 'signup', 
+        email: unverifiedEmail 
+      })
+      setResendSent(true)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to resend confirmation email.')
     }
   }
 
@@ -156,11 +182,36 @@ export default function LoginPage() {
 
           {/* Error Message Feedbacks */}
           {error && (
-            <p 
-              className="text-sm px-4 py-3 rounded-lg" 
-              style={{ color: 'var(--color-danger)', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)' }}
-            >
-              {error}
+            <div className="flex flex-col gap-2">
+              <p 
+                className="text-sm px-4 py-3 rounded-lg" 
+                style={{ color: 'var(--color-danger)', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)' }}
+              >
+                {error}
+              </p>
+              
+              {/* Conditional Resend Button Trigger */}
+              {unverifiedEmail && !resendSent && (
+                <button 
+                  onClick={handleResend}
+                  type="button"
+                  className="text-left hover:brightness-125 transition-all"
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: '#3B82F6', fontSize: '0.8rem', padding: '0 4px',
+                    textDecoration: 'underline', width: 'fit-content'
+                  }}
+                >
+                  Resend verification email
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Success Resend Notice */}
+          {resendSent && (
+            <p style={{ color: '#10B981', fontSize: '0.8rem', padding: '0 4px' }}>
+              Verification email resent — check your inbox.
             </p>
           )}
 

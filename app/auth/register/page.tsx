@@ -6,7 +6,6 @@ import Link               from 'next/link'
 import { createClient }   from '@/lib/supabase'
 import { Button }         from '@/components/ui/Button'
 import { Input, Textarea } from '@/components/ui/Input'
-import { Spinner }        from '@/components/ui/Spinner'
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -121,71 +120,53 @@ export default function RegisterPage() {
     setError(null)
 
     try {
+      const origin = window.location.origin
+
+      // Build the profile payload mapped exactly to DB columns
+      const profilePayload =
+        role === 'student'
+          ? {
+              first_name: student.firstName.trim(),
+              last_name:  student.lastName.trim(),
+              reg_number: student.regNumber.trim(),
+              university: student.university.trim(),
+              department: student.department.trim(),
+              level:      student.level,
+            }
+          : role === 'company'
+          ? {
+              name:        company.name.trim(),
+              industry:    company.industry,
+              location:    company.location.trim(),
+              size:        company.size,
+              description: company.description.trim(),
+            }
+          : role === 'supervisor'
+          ? {
+              title:       supervisor.title,
+              full_name:   supervisor.fullName.trim(),
+              institution: supervisor.institution.trim(),
+              department:  supervisor.department.trim(),
+              staff_id:    supervisor.staffId.trim(),
+            }
+          : {}
+
+      // Sign up and embed user profile data in metadata for the /auth/callback handler
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email:    creds.email.toLowerCase().trim(),
+        email: creds.email.toLowerCase().trim(),
         password: creds.password,
+        options: {
+          data: { role, ...profilePayload },
+          emailRedirectTo: `${origin}/auth/callback`,
+        },
       })
       if (signUpError) throw signUpError
 
-      const userId = authData.user?.id
-      if (!userId) throw new Error('Registration failed — no user returned. Check Supabase email confirmation is disabled.')
+      // Note: user_roles insert and profiles update removed.
+      // This is now handled in /auth/callback upon verifying the email.
 
-      // Insert role — this fires auto_create_profile trigger, blank row now exists
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({ user_id: userId, role })
-      if (roleError) throw roleError
-
-      // UPDATE the blank row the trigger just created
-      if (role === 'student') {
-        const { error: profileError } = await supabase
-          .from('students')
-          .update({
-            first_name: student.firstName.trim(),
-            last_name:  student.lastName.trim(),
-            reg_number: student.regNumber.trim(),
-            university: student.university.trim(),
-            department: student.department.trim(),
-            level:      student.level,
-          })
-          .eq('user_id', userId)
-        if (profileError) throw profileError
-      }
-
-      if (role === 'company') {
-        const { error: profileError } = await supabase
-          .from('companies')
-          .update({
-            name:        company.name.trim(),
-            industry:    company.industry,
-            location:    company.location.trim(),
-            size:        company.size,
-            description: company.description.trim(),
-          })
-          .eq('user_id', userId)
-        if (profileError) throw profileError
-      }
-
-      if (role === 'supervisor') {
-        const { error: profileError } = await supabase
-          .from('supervisors')
-          .update({
-            title:       supervisor.title,
-            full_name:   supervisor.fullName.trim(),
-            institution: supervisor.institution.trim(),
-            department:  supervisor.department.trim(),
-            staff_id:    supervisor.staffId.trim(),
-          })
-          .eq('user_id', userId)
-        if (profileError) throw profileError
-      }
-
+      // Proceed to the check email success screen
       setStep(3)
-      // Company and supervisor go to verification, students go straight to dashboard
-      const destination = (role === 'company' || role === 'supervisor')
-        ? '/verification-pending'
-        : `/dashboard/${role}`
-      setTimeout(() => router.push(destination), 2500)
 
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.')
@@ -400,39 +381,40 @@ export default function RegisterPage() {
           </div>
         )}
 
-        {/* ── Step 3: Success ────────────────────────────────────── */}
+        {/* ── Step 3: Success / Check Email ──────────────────────── */}
         {step === 3 && (
-          <div className="flex flex-col items-center text-center py-8">
-            <div
-              className="w-16 h-16 rounded-full flex items-center justify-center mb-6"
-              style={{
-                background: (role === 'company' || role === 'supervisor')
-                  ? 'rgba(245,158,11,0.12)' : 'rgba(16,185,129,0.12)',
-                border: `1px solid ${(role === 'company' || role === 'supervisor')
-                  ? 'rgba(245,158,11,0.25)' : 'rgba(16,185,129,0.25)'}`,
-              }}
-            >
-              {(role === 'company' || role === 'supervisor') ? (
-                <svg className="w-8 h-8" style={{ color: '#F59E0B' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
-                </svg>
-              ) : (
-                <svg className="w-8 h-8" style={{ color: '#10B981' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              )}
+          <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+            <div style={{
+              width: 60, height: 60, borderRadius: '50%', margin: '0 auto 1.25rem',
+              background: 'rgba(59,130,246,0.15)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <svg width="26" height="26" fill="none" viewBox="0 0 24 24"
+                stroke="#3B82F6" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round"
+                  d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+              </svg>
             </div>
-            <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: 'var(--font-heading)' }}>
-              {(role === 'company' || role === 'supervisor') ? 'Account Created' : "You're in!"}
-            </h1>
-            <p className="text-sm mb-6" style={{ color: 'var(--color-muted)' }}>
-              {(role === 'company' || role === 'supervisor')
-                ? 'Taking you to upload your verification document…'
-                : 'Account created. Taking you to your dashboard…'}
+
+            <h2 style={{
+              fontFamily: 'var(--font-heading)', fontSize: '1.25rem',
+              fontWeight: 700, color: '#EEF4FF', marginBottom: '0.5rem',
+            }}>
+              Check your inbox
+            </h2>
+
+            <p style={{ color: '#8BA4C8', fontSize: '0.875rem', lineHeight: 1.6, marginBottom: '0.5rem' }}>
+              We sent a verification link to
             </p>
-            <span style={{ color: 'var(--color-accent)' }}>
-              <Spinner size="sm" />
-            </span>
+            <p style={{ color: '#EEF4FF', fontSize: '0.875rem', fontWeight: 600, marginBottom: '1rem' }}>
+              {creds.email}
+            </p>
+            <p style={{ color: '#8BA4C8', fontSize: '0.8rem', lineHeight: 1.6 }}>
+              Click the link in that email to activate your account.
+              {(role === 'company' || role === 'supervisor') && (
+                <> You`ll then be asked to upload your verification document.</>
+              )}
+            </p>
           </div>
         )}
 

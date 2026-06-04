@@ -88,6 +88,7 @@ export async function proxy(request: NextRequest) {
 if (pathname.startsWith('/auth') && user) {
   if (pathname.startsWith('/auth/register'))       return supabaseResponse
   if (pathname.startsWith('/auth/reset-password')) return supabaseResponse
+  if (pathname.startsWith('/auth/callback'))        return supabaseResponse
   const { data: roleData } = await supabase
     .from('user_roles').select('role').eq('user_id', user.id).single()
     const role = roleData?.role
