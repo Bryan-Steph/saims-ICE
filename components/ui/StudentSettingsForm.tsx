@@ -12,8 +12,7 @@ type Student = {
   department:  string
   university:  string
   level:       string
-  avatar_url:  string | null
-}
+avatar_url?: string | null}
 
 interface Props {
   student: Student
@@ -69,7 +68,7 @@ export function StudentSettingsForm({ student, userId, email }: Props) {
     level:       student.level,
   })
 
-  const [avatarUrl,     setAvatarUrl]     = useState<string | null>(student.avatar_url)
+const [avatarUrl,     setAvatarUrl]     = useState<string | null>(student.avatar_url ?? null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [uploading,     setUploading]     = useState(false)
   const [saving,        setSaving]        = useState(false)
